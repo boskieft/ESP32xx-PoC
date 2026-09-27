@@ -109,6 +109,8 @@ void consoleLoop(unsigned long currentMillis) {
             LOG_PRINTF("Q = erase Neopixel ring\n");
             LOG_PRINTF("k = kill Neopixel ring\n");
             LOG_PRINTF("= = log Neopixel statistics\n");
+            LOG_PRINTF("- = rotate Neopixel ring to the left\n");
+            LOG_PRINTF("+ = rotate Neopixel ring to the right\n");
             LOG_PRINTF("s = system info\n");
             LOG_PRINTF("x = show `Hello!` on dotMatrix\n");
             LOG_PRINTF("X = clear dotMatrix\n");
@@ -181,14 +183,20 @@ void consoleLoop(unsigned long currentMillis) {
         case 'Q':
             allBlackNeopixelRing();
             break;
-        case 'x':
-            dotMatrixPtr->showMessage("Hello!");
-            break;
         case '/':
             killNeopixelRing();
             break;
         case '=':
             logNeopixelStatistics();
+            break;
+        case '-':
+            rotateLeftRing();
+            break;
+        case '+':
+            rotateRightRing();
+            break;
+        case 'x':
+            dotMatrixPtr->showMessage("Hello!");
             break;
         case 'X':
             dotMatrixPtr->showMessage("");

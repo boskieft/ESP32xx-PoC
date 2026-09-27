@@ -10,16 +10,18 @@
 
 #define NEOPIXEL_ENABLE_SECOND_RING 0 // to enable 2nd ring, also disable the Dotmatrix in main.cpp
 
-#if (1 == 1)
+#if (0 == 1)
 //-----------------
 //  9x RGBW ring
 //-----------------
-NeopixelDriver<PixelType::GRBW_SEQ4> npx;
-//  NeopixelDriver<static_cast<PixelType>(666)> npx;
+NeopixelDriver<PixelType::GRBW_SEQ3> npx;
+// NeopixelDriver<PixelType::GRBW_SEQ4> npx;
+//   NeopixelDriver<static_cast<PixelType>(666)> npx;
 
 inline constexpr PixelColor neopixelBackgroundColor = {.color = {.b = 0x03, .g = 0, .r = 0, .w = 0}}; // dimmed Blue
                                                                                                       // inline constexpr PixelColor neopixelColored = {.color = {.b = 0, .g = 0, .r = 0, .w = 0x03}};         // dimmed White
 inline constexpr PixelColor neopixelColored = {.color = {.b = 0x30, .g = 0x20, .r = 0, .w = 0}};      // fairly brigh cyan, should be dimmed
+// inline constexpr PixelColor neopixelColored = {.color = {.b = 0, .g = 0, .r = 0x28, .w = 0}}; // fairly red, should be dimmed
 
 // #define PIXEL_COUNT (1 + 8 + 12 + 16 + 24 + 32 + 40 + 48 + 60) // 1 assembly 9 rings in total
 #define PIXEL_COUNT (1 + 8 + 12 + 16 + 24 + 32 + 40 + 48 + 60 - 1) // test: 1 pixel less
@@ -28,7 +30,7 @@ inline constexpr PixelColor neopixelColored = {.color = {.b = 0x30, .g = 0x20, .
 //-----------------
 //  3x RGB ring
 //-----------------
-NeopixelDriver<PixelType::GRB_SEQ4> npx;
+NeopixelDriver<PixelType::GRB_SEQ3> npx;
 inline constexpr PixelColor neopixelBackgroundColor = {.color = {.b = 0x03, .g = 0, .r = 0, .w = 0}}; // dimmed Blue
 inline constexpr PixelColor neopixelColored = {.color = {.b = 0, .g = 0, .r = 0x10, .w = 0}};         // dimmed Red
 
@@ -45,6 +47,16 @@ void killNeopixelRing(void) {
 
 void allBlackNeopixelRing(void) {              // for console
     npx.setAllPixels(neopixelBackgroundColor); //@@@TODO: change to neopixelBlack
+    npx.show();
+}
+
+void rotateLeftRing(void) {
+    npx.rotateLeft();
+    npx.show();
+}
+
+void rotateRightRing(void) {
+    npx.rotateRight();
     npx.show();
 }
 
@@ -98,9 +110,15 @@ bool startNeopixelRing(void) {
         return (false);
     }
 
-    ESP_LOGI(TAG, "Initializing NeoPixel ring on pin=%d with %d pixels", dataPin, PIXEL_COUNT);
+    ESP_LOGI(TAG, "Initializing Neopixel ring on pin=%d with %d pixels", dataPin, PIXEL_COUNT);
     npx.begin(PIXEL_COUNT, dataPin);
     //@@@TODO: error handling
+
+    if (npx.isRotatable()) {
+        ESP_LOGI(TAG, "Neopixel ring is rotatable");
+    } else {
+        ESP_LOGI(TAG, "Neopixel ring is NOT rotatable");
+    }
 
 #if (NEOPIXEL_ENABLE_OUTPUT_EVERY_WRITE == 0)
     hal.setNeoPixelEnable(true); // enable the data output

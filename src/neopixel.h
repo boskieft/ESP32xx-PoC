@@ -119,7 +119,9 @@ class NeopixelDriver {
     uint8_t brightness = 255;                     // global brightness (min=0...max=255)
     struct NeopixelTransmitStatistics stats = {}; // statistics for Neopixel data transmission
 
-    // (De)Constructors
+    //-------------------------------------------
+    //  (De)Constructors
+    //-------------------------------------------
     NeopixelDriver(void) : txControl(&stats) {} // initialize txControl with pointer to the statistics structure here
 
     // empty, use begin() to initialize the driver
@@ -133,7 +135,9 @@ class NeopixelDriver {
         nrPixels = 0;
     }
 
-    // Basic functions
+    //-------------------------------------------
+    //  Basic functions
+    //-------------------------------------------
     bool begin(const size_t nrPixels, const gpio_num_t dataPin); // in cpp, will allocate buffer
     void setPixel(const size_t index, const PixelColor color);   // in cpp, will set one pixel in buffer
 
@@ -141,7 +145,9 @@ class NeopixelDriver {
         txControl.startTransmit(buffer, bufferSize);
     }
 
-    // Extra functions
+    //-------------------------------------------
+    //  Set multiple pixels
+    //-------------------------------------------
     void setAllPixels(const PixelColor color) {
         _fillPixelRange(0, nrPixels, color);
     }
@@ -160,5 +166,43 @@ class NeopixelDriver {
         }
 
         _fillPixelRange(startIndex, (endIndex - startIndex + 1), color);
+    }
+
+    //-------------------------------------------
+    //  Rotate pixels
+    //-------------------------------------------
+    bool isRotatable(void) const {
+        return ((nrPixels > 1) &&                       // useless to rotate if only one pixel
+                ((NEOPIXEL_USE_BIG_ENDIAN_DATA == 1) || // always works with Big-Endian data
+                 (txBytesPerPixel % 2 == 0))            // with Little-Endian data (ie older ESP32 variant), only works if txBytesPerPixel is even
+        );
+    }
+
+    void rotateLeft(void) {
+        if (!isRotatable()) {
+            return; // just do nothing
+        }
+
+        // Remember first
+        uint8_t copiedBytes[txBytesPerPixel]; // Variable Length Array (VLA), not standard C++, but supported by GCC
+        memcpy(copiedBytes, &buffer[0], txBytesPerPixel);
+        // Move rest to left (use memmove to handle overlapping memory)
+        memmove(&buffer[0], &buffer[txBytesPerPixel], txBytesPerPixel * (nrPixels - 1));
+        // Put first at the end
+        memcpy(&buffer[(nrPixels - 1) * txBytesPerPixel], copiedBytes, txBytesPerPixel);
+    }
+
+    void rotateRight(void) {
+        if (!isRotatable()) {
+            return; // just do nothing
+        }
+
+        // Remember last
+        uint8_t copiedBytes[txBytesPerPixel]; // Variable Length Array (VLA), not standard C++, but supported by GCC
+        memcpy(copiedBytes, &buffer[(nrPixels - 1) * txBytesPerPixel], txBytesPerPixel);
+        // Move rest to right (use memmove to handle overlapping memory)
+        memmove(&buffer[txBytesPerPixel], &buffer[0], txBytesPerPixel * (nrPixels - 1));
+        // Put last as first
+        memcpy(&buffer[0], copiedBytes, txBytesPerPixel);
     }
 };
