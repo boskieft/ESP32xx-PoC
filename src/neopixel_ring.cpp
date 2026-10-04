@@ -10,6 +10,8 @@
 
 #define NEOPIXEL_ENABLE_SECOND_RING 0 // to enable 2nd ring, also disable the Dotmatrix in main.cpp
 
+#define NEOPIXEL_ENABLE_OUTPUT_EVERY_WRITE 0
+
 #if (0 == 1)
 //-----------------
 //  9x RGBW ring
@@ -99,7 +101,7 @@ bool startNeopixelRing2(void) {
 #endif
 
 bool startNeopixelRing(void) {
-    setLogLevel("NPIX", ESP_LOG_DEBUG);
+    setLogLevel("NPIX", ESP_LOG_DEBUG); //@@@TODO: does NOT work anymore, now neopixel is a standard component/library
     setLogLevel("I2S_", ESP_LOG_DEBUG);
     setLogLevel("RING", ESP_LOG_INFO); // here Info is already quite verbose
 
