@@ -12,7 +12,7 @@
 
 #define NEOPIXEL_ENABLE_OUTPUT_EVERY_WRITE 0
 
-#if (0 == 1)
+#if (1 == 1)
 //-----------------
 //  9x RGBW ring
 //-----------------
@@ -53,18 +53,18 @@ void allBlackNeopixelRing(void) {              // for console
 }
 
 void rotateLeftRing(void) {
-    npx.rotateLeft();
+    npx.rotateAllLeft();
     npx.show();
 }
 
 void rotateRightRing(void) {
-    npx.rotateRight();
+    npx.rotateAllRight();
     npx.show();
 }
 
 #if (NEOPIXEL_ENABLE_SECOND_RING)
 /*
-===================================================================================================
+=========================================================== ========================================
     Second NeoPixel ring
 ===================================================================================================
 */
@@ -101,9 +101,9 @@ bool startNeopixelRing2(void) {
 #endif
 
 bool startNeopixelRing(void) {
-    setLogLevel("NPIX", ESP_LOG_DEBUG); //@@@TODO: does NOT work anymore, now neopixel is a standard component/library
+    setLogLevel("NPIX", ESP_LOG_DEBUG);
     setLogLevel("I2S_", ESP_LOG_DEBUG);
-    setLogLevel("RING", ESP_LOG_INFO); // here Info is already quite verbose
+    setLogLevel("RING", ESP_LOG_DEBUG);
 
     gpio_num_t dataPin = hal.get_neopixel_data_pin();
 
@@ -138,14 +138,22 @@ void logNeopixelStatistics(void) {
 #if (ENABLE_I2S_TASK_VERSION)
     ESP_LOGI(TAG, "minimumFreeStack=%u", npx.stats.minimumFreeStack);
 #endif
-    ESP_LOGI(TAG, "maxNrChunksSent=%u, maxSendMicros=%lld, ", npx.stats.maxNrChunksSent, npx.stats.maxSendMicros);
+    ESP_LOGI(TAG, "maxNrChunksSent=%u, maxSendMicros=%lld", npx.stats.maxNrChunksSent, npx.stats.maxSendMicros);
     ESP_LOGI(TAG, "nrTimeouts=%u, nrPreloadDataErrors=%u, nrChannelErrors=%u", npx.stats.nrTimeouts, npx.stats.nrPreloadDataErrors, npx.stats.nrChannelErrors);
 }
 
-void statistics(unsigned long currentMillis) {
+/*
+===============================================================================
+    Check and log the Neopixel statistics
+===============================================================================
+*/
+static void statistics(unsigned long currentMillis) {
     static int loopStartMillis = 0;
     static int maxMillisPerLoop = 0;
+
+    //---------------------------------------------------------------------------------------------
     // Ring loop speed
+    //---------------------------------------------------------------------------------------------
     if (loopStartMillis != 0) {
         int loopMillis = currentMillis - loopStartMillis;
         if (loopMillis > maxMillisPerLoop) {
@@ -155,41 +163,79 @@ void statistics(unsigned long currentMillis) {
     }
     loopStartMillis = currentMillis;
 
+    //---------------------------------------------------------------------------------------------
+    // Maximum time taken to send data to the Neopixels
+    //
+    // Initially short (approx 200 us)
+    // Will increase when you try to send faster than the Neopixel transmission rate,
+    // because the Driver needs to wait for the previous transmission to complete
+    //---------------------------------------------------------------------------------------------
+    if (esp_log_level_get("I2S_") < ESP_LOG_DEBUG) {
+        // Driver is not logging it, do it here
+        static int64_t loggedMaxSendMicros = 0;
+        if (npx.stats.maxSendMicros > loggedMaxSendMicros) {
+            loggedMaxSendMicros = npx.stats.maxSendMicros;
+            ESP_LOGI(TAG, "maxSendMicros=%lld", loggedMaxSendMicros);
+        }
+    } // else: don't log twice
+
+    //---------------------------------------------------------------------------------------------
     // Used chunks
-    static int reportedMaxChunksSent = 0;
-    if (npx.stats.maxNrChunksSent > reportedMaxChunksSent) {
-        reportedMaxChunksSent = npx.stats.maxNrChunksSent;
-        ESP_LOGI(TAG, "maxNrChunksSent=%d", reportedMaxChunksSent);
+    //
+    // Usually same as the configured number of chunks (2 or more)
+    // Will increase on certain ESP32xx variants when sending fast to a small number of Neopixels,
+    // because the Driver may need to send multiple dummy flush chunks until it is done
+    //---------------------------------------------------------------------------------------------
+    static int loggedMaxChunksSent = 0;
+    if (npx.stats.maxNrChunksSent > loggedMaxChunksSent) {
+        loggedMaxChunksSent = npx.stats.maxNrChunksSent;
+        ESP_LOGI(TAG, "maxNrChunksSent=%d", loggedMaxChunksSent);
     }
 
+    //---------------------------------------------------------------------------------------------
     // Preload data errors
-    static int reportedNrPreloadDataErrors = 0;
-    if (npx.stats.nrPreloadDataErrors > reportedNrPreloadDataErrors) {
-        reportedNrPreloadDataErrors = npx.stats.nrPreloadDataErrors;
-        ESP_LOGI(TAG, "nrPreloadDataErrors=%d", reportedNrPreloadDataErrors);
+    //
+    // Never seen this happen in practice
+    //---------------------------------------------------------------------------------------------
+    static int loggedNrPreloadDataErrors = 0;
+    if (npx.stats.nrPreloadDataErrors > loggedNrPreloadDataErrors) {
+        loggedNrPreloadDataErrors = npx.stats.nrPreloadDataErrors;
+        ESP_LOGI(TAG, "nrPreloadDataErrors=%d", loggedNrPreloadDataErrors);
     }
-
+    //---------------------------------------------------------------------------------------------
     // Channel errors
-    static int reportedNrChannelErrors = 0;
-    if (npx.stats.nrChannelErrors > reportedNrChannelErrors) {
-        reportedNrChannelErrors = npx.stats.nrChannelErrors;
-        ESP_LOGI(TAG, "nrChannelErrors=%d", reportedNrChannelErrors);
+    //
+    // Never seen this happen in practice
+    //---------------------------------------------------------------------------------------------
+    static int loggedNrChannelErrors = 0;
+    if (npx.stats.nrChannelErrors > loggedNrChannelErrors) {
+        loggedNrChannelErrors = npx.stats.nrChannelErrors;
+        ESP_LOGI(TAG, "nrChannelErrors=%d", loggedNrChannelErrors);
     }
 
+    //---------------------------------------------------------------------------------------------
     // Timeouts
-    static int reportedNrTimeouts = 0;
-    if (npx.stats.nrTimeouts > reportedNrTimeouts) {
-        reportedNrTimeouts = npx.stats.nrTimeouts;
-        ESP_LOGI(TAG, "nrTimeouts=%d", reportedNrTimeouts);
-    }
-#if (ENABLE_I2S_TASK_VERSION)
-    // Used Task stack
-    static UBaseType_t reportedMinFreeTaskStack = UINT_MAX;
-    if (npx.stats.minimumFreeStack < reportedMinFreeTaskStack) {
-        reportedMinFreeTaskStack = npx.stats.minimumFreeStack;
-        ESP_LOGI(TAG, "minimumFreeStack=%u", reportedMinFreeTaskStack);
+    //
+    // Only seen this one happen in case the dataPin was not configured correctly
+    //---------------------------------------------------------------------------------------------
+    static int loggedNrTimeouts = 0;
+    if (npx.stats.nrTimeouts > loggedNrTimeouts) {
+        loggedNrTimeouts = npx.stats.nrTimeouts;
+        ESP_LOGI(TAG, "nrTimeouts=%d", loggedNrTimeouts);
     }
 
+#if (ENABLE_I2S_TASK_VERSION)
+    //---------------------------------------------------------------------------------------------
+    // Free room in the Task stack
+    //
+    // Should remain at least 100 bytes, ESP32xx will reboot when the stack is exhausted
+    // Depends a lot on the ESP32xx variant, Task on ESP32-S3 uses the most stack
+    //---------------------------------------------------------------------------------------------
+    static UBaseType_t loggedMinFreeTaskStack = UINT_MAX;
+    if (npx.stats.minimumFreeStack < loggedMinFreeTaskStack) {
+        loggedMinFreeTaskStack = npx.stats.minimumFreeStack;
+        ESP_LOGI(TAG, "minimumFreeStack=%u", loggedMinFreeTaskStack);
+    }
 #endif
 }
 
